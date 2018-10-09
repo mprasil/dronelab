@@ -4,8 +4,11 @@ Dronelab is a wrapper and a set of Docker images to let you use [Drone CI plugin
 
 - [Dronelab](#dronelab)
 - [Basic usage](#basic-usage)
-  - [Providing parameters as single yaml variable](#providing-parameters-as-single-yaml-variable)
+    - [Providing parameters as single yaml variable](#providing-parameters-as-single-yaml-variable)
+    - [Providing parameters as parameter to `plugin` command](#providing-parameters-as-parameter-to-plugin-command)
+    - [Priority of parameters](#priority-of-parameters)
 - [Differences from Drone usage](#differences-from-drone-usage)
+    - [Artifacts between steps](#artifacts-between-steps)
 - [How it works](#how-it-works)
 - [Get in touch](#get-in-touch)
 
