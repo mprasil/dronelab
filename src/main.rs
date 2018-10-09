@@ -12,7 +12,7 @@ use std::process::{Command,exit};
 use clap::{Arg, App};
 use mappings::drone_envs;
 use plugin_params::*;
-use std::env::var;
+use std::env::{var, vars};
 
 
 
@@ -33,6 +33,7 @@ fn main() {
 
     let status = Command::new(var("DRONELAB").unwrap())
         .envs(drone_envs())
+        .envs(get_lowercase_hashmap(vars()))
         .envs(get_env_hashmap(var("plugin")).unwrap())
         .envs(get_cmdline_hashmap(cmdline.values_of("plugin_params")).unwrap())
         .status()

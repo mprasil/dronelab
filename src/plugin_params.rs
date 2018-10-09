@@ -1,11 +1,13 @@
 use std::collections::HashMap;
-use std::env::VarError;
+use std::env::{VarError, Vars};
 use clap::Values;
 use serde_json::{self, Value};
 use serde_yaml;
 
 pub type PluginParams = HashMap<String, String>;
 
+
+// read provided variable (most likely "plugin") as yaml
 pub fn get_env_hashmap(var: Result<String,VarError>) -> Result<PluginParams, String> {
     match var {
         Ok(yaml) => {
@@ -52,6 +54,7 @@ pub fn get_env_hashmap(var: Result<String,VarError>) -> Result<PluginParams, Str
     }
 }
 
+// read params provided via commandline parameter (-p key value)
 pub fn get_cmdline_hashmap(cmdline: Option<Values>) -> Result<PluginParams, String> {
     match cmdline {
         Some(values) => {
@@ -70,4 +73,18 @@ pub fn get_cmdline_hashmap(cmdline: Option<Values>) -> Result<PluginParams, Stri
         },
         None => Ok(PluginParams::new())
     }
+}
+
+// read all lowercase variables
+pub fn get_lowercase_hashmap(vars: Vars) -> PluginParams {
+    let mut plugin_params = PluginParams::new();
+    for (key, value) in vars {
+        if key.to_lowercase() == key && !vec!["plugin", "_"].contains(&key.as_str()) {
+            plugin_params.insert(
+                format!("PLUGIN_{}", key.to_uppercase()),
+                value
+            );
+        }
+    }
+    plugin_params
 }
