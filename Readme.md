@@ -4,11 +4,12 @@ Dronelab is a wrapper and a set of Docker images to let you use [Drone CI plugin
 
 - [Dronelab](#dronelab)
 - [Basic usage](#basic-usage)
-    - [Providing parameters as single yaml variable](#providing-parameters-as-single-yaml-variable)
-    - [Providing parameters as parameter to `plugin` command](#providing-parameters-as-parameter-to-plugin-command)
-    - [Priority of parameters](#priority-of-parameters)
+  - [Providing parameters as single yaml variable](#providing-parameters-as-single-yaml-variable)
+  - [Providing parameters as parameter to `dronelab` command](#providing-parameters-as-parameter-to-dronelab-command)
+  - [Secrets and creating plugin variables directly](#secrets-and-creating-plugin-variables-directly)
+  - [Priority of parameters](#priority-of-parameters)
 - [Differences from Drone usage](#differences-from-drone-usage)
-    - [Artifacts between steps](#artifacts-between-steps)
+  - [Artifacts between steps](#artifacts-between-steps)
 - [How it works](#how-it-works)
 - [Get in touch](#get-in-touch)
 
@@ -81,7 +82,7 @@ awscf:
 
 ⚠ Notice, that we can also combine different methods of providing the parameters.
 
-### Providing parameters as parameter to `plugin` command
+### Providing parameters as parameter to `dronelab` command
 
 In some cases you might not want to use the `variables` at all. One example is when you use [yaml anchors](https://docs.gitlab.com/ce/ci/yaml/#anchors) and you don't want to override `variables` set in your anchor. Instead you can also provide plugin parameters as `-p` option to the `dronelab` command:
 
@@ -119,13 +120,82 @@ stackthree:
 
 ⚠ Note that this example with anchors is somewhat artificially constructed, you can use [`extends` keyword](https://docs.gitlab.com/ce/ci/yaml/#extends) instead - that one is able to merge your variables.
 
+### Secrets and creating plugin variables directly
+
+When you define plugin parameter via `variables`, `plugin` yaml variable or as a parameter via the `-p` script argument, Dronelab will automatically [transform such variables](#how-it-works) into the `PLUGIN_VARIABLE_NAME` environment variable, because that's how Drone plugins actually work. That also means we can provide such variables directly - either via `variables` in the `.gitlab-ci.yml` file or as variables configured via CI/CD settings of the project or on the group level.
+
+You might have noticed in the Drone plugin documentation, that some plugins accept secrets as form of configuration. These are expected in slightly different format by the Drone plugin. They are simply uppercase version of the secret name without the `PLUGIN_` prefix. Because of that you can't use `plugin` yaml variable, lowercase `variables` variable or `-p` script argument to set these as Dronelab would add the prefix to the name. In most cases you want to provide secrets as CI/CD variables defined in the CI/CD configuration rather than from the `.gitlab-ci.yml` file. (Committing secrets into your repository is generally a bad idea)
+
+Let's look at the [Matrix plugin](http://plugins.drone.io/drone-plugins/drone-matrix/) as an example. You can provide the password either as a `password` parameter or `matrix_password` secret. That means that behind the scenes plugin expects either `PLUGIN_PASSWORD` or `MATRIX_PASSWORD` variable to be set. Let's assume we have set the password in the [Variables CI/CD configuration](https://docs.gitlab.com/ce/ci/variables/README.html#variables) for the project (or group) under the name `MATRIX_PASSWORD`.
+
+Here's how you can send the message to the Matrix room using the saved password:
+
+```yaml
+message-one:
+  image: dronelab/matrix
+  script: dronelab
+  variables:
+    username: matrix_user
+    homeserver: https://matrix.org
+    roomid: abcdefghijklmnopqrstuvwxyz:matrix.org
+    template: Hello from Gitlab!
+```
+
+Notice we didn't provide  the password at all! Gitlab CI will set the variable `MATRIX_PASSWORD` automatically, because it's configured in project settings. Plugin will just use it.
+
+However if you want to be more explicit in the `.gitlab-ci.yml` file, you can explicitly provide it:
+
+```yaml
+message-two:
+  image: dronelab/matrix
+  script: dronelab
+  variables:
+    username: matrix_user
+    password: $MATRIX_PASSWORD
+    homeserver: https://matrix.org
+    roomid: abcdefghijklmnopqrstuvwxyz:matrix.org
+    template: Hello from Gitlab!
+```
+
+Sending a message to a room might be used multiple times in the pipeline, so you can either use template with yaml anchors, [`extends`](https://docs.gitlab.com/ce/ci/yaml/#extends) keyword or you can just set the variables globally so  there's only one place to change them:
+
+```yaml
+variables:
+  username: matrix_user
+  password: $MATRIX_PASSWORD
+  homeserver: https://matrix.org
+  roomid: abcdefghijklmnopqrstuvwxyz:matrix.org
+
+message-one:
+  image: dronelab/matrix
+  script: dronelab
+  variables:
+    template: Hello from Gitlab!
+
+message-two:
+  image: dronelab/matrix
+  script: dronelab
+  variables:
+    template: Hello again!
+
+# You can also override some of the global variables to message to a different
+# room for example.
+message-elsewhere:
+  image: dronelab/matrix
+  script: dronelab
+  variables:
+    roomid: someotherroomidprovidedhere:matrix.org
+    template: Hello in a different room!
+```
+
 ### Priority of parameters
 
 In case you provide the same parameter via multiple different ways, they are applied in specific order, the last one applies:
 
-  1. Individual variables using `variables`
-  2. The `plugin` yaml variable
-  3. The plugin parameter via `-p <key> <value>`
+  1. Variables and secrets provided directly as `PLUGIN_VARIABLE_NAME` or `NAME_OF_SECRET`
+  2. Individual variables using `variables`
+  3. The `plugin` yaml variable
+  4. The script parameter via `-p <key> <value>`
 
 That means the following configuration will download version 1 of the file:
 
